@@ -1,0 +1,71 @@
+openapi: 3.0.3
+info:
+  title: Distributed Contract Processing API
+  description: API base para recibir contratos, guardarlos en S3 y persistir su metadata/datos.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Servidor Local
+paths:
+  /contracts:
+    post:
+      summary: Subir un archivo de contrato (Contract)
+      description: Recibe un archivo (ej. JSON), lo sube a un bucket S3, extrae información relevante y la persiste en la base de datos (PostgreSQL/Mongo).
+      operationId: uploadContractFile
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Archivo JSON con los datos a procesar y persistir.
+              required:
+                - file
+      responses:
+        '202':
+          description: Archivo aceptado para procesamiento. (Se usa 202 Accepted porque el guardado en S3 y base de datos podría ser asíncrono o tomar tiempo).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContractResponse'
+        '400':
+          description: Petición incorrecta (ej. archivo no enviado o formato inválido).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error interno del servidor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    ContractResponse:
+      type: object
+      properties:
+        contract_id:
+          type: string
+          format: uuid
+          description: Identificador único del contrato generado.
+        status:
+          type: string
+          example: accepted
+          description: Estado actual del proceso.
+        message:
+          type: string
+          example: File uploaded and processing started
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Bad Request
+        message:
+          type: string
+          example: Invalid file format
