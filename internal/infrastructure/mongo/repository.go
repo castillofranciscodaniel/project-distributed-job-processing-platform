@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/francisco/distributed-job-platform/internal/domain/contract"
+	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -27,7 +28,7 @@ func (r *contractRepository) Save(ctx context.Context, c *contract.Contract) err
 	return nil
 }
 
-func (r *contractRepository) GetByID(ctx context.Context, id string) (*contract.Contract, error) {
+func (r *contractRepository) GetByID(ctx context.Context, id uuid.UUID) (*contract.Contract, error) {
 	var result contract.Contract
 	filter := bson.M{"_id": id}
 

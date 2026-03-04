@@ -6,11 +6,13 @@ import (
 
 	"github.com/francisco/distributed-job-platform/internal/domain/contract"
 	"github.com/francisco/distributed-job-platform/internal/handlers/helpers"
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 )
 
-// ContractResponse maps to the ContractResponse schema defined in OpenAPI.
 type ContractResponse struct {
 	ContractID string `json:"contract_id"`
+	URL        string `json:"url"`
 	Status     string `json:"status"`
 	Message    string `json:"message"`
 }
@@ -19,14 +21,12 @@ type ContractHandler struct {
 	service *contract.ContractService
 }
 
-// NewContractHandler is the constructor for the handler struct.
 func NewContractHandler(service *contract.ContractService) *ContractHandler {
 	return &ContractHandler{
 		service: service,
 	}
 }
 
-// Upload handles the POST /api/v1/contracts endpoint.
 func (h *ContractHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Received request to upload a contract file")
 
@@ -38,7 +38,6 @@ func (h *ContractHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Retrieve the file from form data
 	file, handler, err := r.FormFile("file")
 	if err != nil {
 		log.Printf("Error retrieving file 'file': %v", err)
@@ -47,23 +46,51 @@ func (h *ContractHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	// Extract client_id from form (Simulating receiving the ClientID)
-	clientID := r.Header.Get("client_id")
-	if clientID == "" {
-		// Just a fallback for this phase if client_id is not provided
-		clientID = "unknown-client"
+	clientIDStr := r.Header.Get("client_id")
+	if clientIDStr == "" {
+		helpers.RespondWithError(w, http.StatusBadRequest, "Missing 'client_id' header")
+		return
 	}
 
-	// Log basic metadata of the file
-	log.Printf("File received: Filename: %s, Size: %d bytes, Header: %v. ClientID: %s", handler.Filename, handler.Size, handler.Header, clientID)
+	clientID, err := uuid.Parse(clientIDStr)
+	if err != nil {
+		helpers.RespondWithError(w, http.StatusBadRequest, "Invalid 'client_id' format. Must be a UUID")
+		return
+	}
 
-	// Create theoretical response
+	log.Printf("File received: Filename: %s, Size: %d bytes. ClientID: %v", handler.Filename, handler.Size, clientID)
+
+	c, err := h.service.CreateContract(r.Context(), clientID, handler.Filename, file)
+	if err != nil {
+		log.Printf("Error creating contract: %v", err)
+		helpers.RespondWithError(w, http.StatusInternalServerError, "Failed to process contract")
+		return
+	}
+
 	response := ContractResponse{
-		ContractID: "dummy-uuid-1234", // We'll delegate UUID and DB creation to the Service layer soon!
-		Status:     "accepted",
+		ContractID: c.ID.String(),
+		Status:     string(c.Status),
 		Message:    "File uploaded and processing started",
 	}
 
-	// Respond with 202 Accepted using our clean helper
 	helpers.RespondWithJSON(w, http.StatusAccepted, response)
+}
+
+func (h *ContractHandler) GetByID(w http.ResponseWriter, r *http.Request) {
+	contractID := chi.URLParam(r, "id")
+	contract, err := h.service.GetContractByID(r.Context(), uuid.Must(uuid.Parse(contractID)))
+
+	if err != nil {
+		helpers.RespondWithError(w, http.StatusNotFound, "Contract not found")
+		return
+	}
+
+	response := ContractResponse{
+		ContractID: contract.ID.String(),
+		URL:        contract.URL,
+		Status:     string(contract.Status),
+		Message:    "File uploaded and processing started",
+	}
+
+	helpers.RespondWithJSON(w, http.StatusOK, response)
 }
