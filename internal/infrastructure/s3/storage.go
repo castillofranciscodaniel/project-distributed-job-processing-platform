@@ -11,7 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/google/uuid"
 )
 
 type Storage struct {
@@ -41,8 +40,8 @@ func NewS3Storage(ctx context.Context, bucketName, region string, expirationMinu
 	}, nil
 }
 
-func (s *Storage) UploadFile(ctx context.Context, clientID uuid.UUID, fileName string, fileContent io.Reader) (string, error) {
-	key := fmt.Sprintf("%s/%s", clientID.String(), fileName)
+func (s *Storage) UploadFile(ctx context.Context, clientID string, fileName string, fileContent io.Reader) (string, error) {
+	key := fmt.Sprintf("%s/%s", clientID, fileName)
 
 	result, err := s.transferManager.UploadObject(ctx, &transfermanager.UploadObjectInput{
 		Bucket: aws.String(s.bucket),

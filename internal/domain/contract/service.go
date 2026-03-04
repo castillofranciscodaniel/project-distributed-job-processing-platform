@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/google/uuid"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type ContractService struct {
@@ -21,8 +21,8 @@ func NewContractService(repository Repository, fileStorage FileStorage, bucket s
 	}
 }
 
-func (s *ContractService) CreateContract(ctx context.Context, clientID uuid.UUID, fileName string, file io.Reader) (*Contract, error) {
-	key, err := s.fileStorage.UploadFile(ctx, clientID, fileName, file)
+func (s *ContractService) CreateContract(ctx context.Context, clientID primitive.ObjectID, fileName string, file io.Reader) (*Contract, error) {
+	key, err := s.fileStorage.UploadFile(ctx, clientID.Hex(), fileName, file)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +36,7 @@ func (s *ContractService) CreateContract(ctx context.Context, clientID uuid.UUID
 	return c, nil
 }
 
-func (s *ContractService) GetContractByID(ctx context.Context, id uuid.UUID) (*Contract, error) {
+func (s *ContractService) GetContractByID(ctx context.Context, id primitive.ObjectID) (*Contract, error) {
 	contract, err := s.repository.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -49,4 +49,20 @@ func (s *ContractService) GetContractByID(ctx context.Context, id uuid.UUID) (*C
 
 	contract.URL = url
 	return contract, nil
+}
+
+func (s *ContractService) GetAllContractsByClientID(ctx context.Context, clientID primitive.ObjectID) ([]Contract, error) {
+	contracts, err := s.repository.GetAllByClientID(ctx, clientID)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range contracts {
+		url, err := s.fileStorage.GetPresignedURL(ctx, contracts[i].Key)
+		if err == nil {
+			contracts[i].URL = url
+		}
+	}
+
+	return contracts, nil
 }

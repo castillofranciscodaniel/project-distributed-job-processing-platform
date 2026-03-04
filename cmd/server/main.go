@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/francisco/distributed-job-platform/internal/config"
+	clientDomain "github.com/francisco/distributed-job-platform/internal/domain/client"
 	"github.com/francisco/distributed-job-platform/internal/domain/contract"
 	"github.com/francisco/distributed-job-platform/internal/handlers"
 	"github.com/francisco/distributed-job-platform/internal/infrastructure/mongo"
@@ -50,6 +51,11 @@ func main() {
 	// Dependency Injection (Manual DI)
 	// =========================================================================
 	db := client.Database("distributed_jobs_db")
+
+	clientRepo := mongo.NewClientRepository(db)
+	clientService := clientDomain.NewClientService(clientRepo)
+	clientHandler := handlers.NewClientHandler(clientService)
+
 	contractRepo := mongo.NewContractRepository(db)
 	contractService := contract.NewContractService(contractRepo, s3Storage, cfg.S3.ContractBucket)
 	contractHandler := handlers.NewContractHandler(contractService)
@@ -65,9 +71,14 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	// Register the POST /api/v1/contracts endpoint.
+	// Client routes
+	r.Post("/api/v1/clients", clientHandler.Create)
+	r.Get("/api/v1/clients/{id}", clientHandler.GetByID)
+
+	// Contract routes
 	r.Post("/api/v1/contracts", contractHandler.Upload)
 	r.Get("/api/v1/contracts/{id}", contractHandler.GetByID)
+	r.Get("/api/v1/clients/{clientID}/contracts", contractHandler.ListByClientID)
 
 	// Start the server
 	log.Printf("Starting HTTP server on port %s", cfg.Port)

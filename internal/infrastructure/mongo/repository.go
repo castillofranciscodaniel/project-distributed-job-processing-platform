@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/francisco/distributed-job-platform/internal/domain/contract"
-	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -28,7 +28,7 @@ func (r *contractRepository) Save(ctx context.Context, c *contract.Contract) err
 	return nil
 }
 
-func (r *contractRepository) GetByID(ctx context.Context, id uuid.UUID) (*contract.Contract, error) {
+func (r *contractRepository) GetByID(ctx context.Context, id primitive.ObjectID) (*contract.Contract, error) {
 	var result contract.Contract
 	filter := bson.M{"_id": id}
 
@@ -40,4 +40,29 @@ func (r *contractRepository) GetByID(ctx context.Context, id uuid.UUID) (*contra
 		return nil, fmt.Errorf("failed to get contract from mongo: %w", err)
 	}
 	return &result, nil
+}
+
+func (r *contractRepository) GetAllByClientID(ctx context.Context, clientID primitive.ObjectID) ([]contract.Contract, error) {
+	filter := bson.M{"client_id": clientID}
+
+	cursor, err := r.collection.Find(ctx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get contracts from mongo: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	var result []contract.Contract
+	for cursor.Next(ctx) {
+		var c contract.Contract
+		if err := cursor.Decode(&c); err != nil {
+			return nil, fmt.Errorf("failed to decode contract from mongo: %w", err)
+		}
+		result = append(result, c)
+	}
+
+	if err := cursor.Err(); err != nil {
+		return nil, fmt.Errorf("cursor error: %w", err)
+	}
+
+	return result, nil
 }

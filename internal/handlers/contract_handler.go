@@ -7,7 +7,7 @@ import (
 	"github.com/francisco/distributed-job-platform/internal/domain/contract"
 	"github.com/francisco/distributed-job-platform/internal/handlers/helpers"
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type ContractResponse struct {
@@ -52,9 +52,9 @@ func (h *ContractHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clientID, err := uuid.Parse(clientIDStr)
+	clientID, err := primitive.ObjectIDFromHex(clientIDStr)
 	if err != nil {
-		helpers.RespondWithError(w, http.StatusBadRequest, "Invalid 'client_id' format. Must be a UUID")
+		helpers.RespondWithError(w, http.StatusBadRequest, "Invalid 'client_id' format. Must be a 24-character hex string (ObjectID)")
 		return
 	}
 
@@ -68,7 +68,8 @@ func (h *ContractHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := ContractResponse{
-		ContractID: c.ID.String(),
+		ContractID: c.ID.Hex(),
+		URL:        "",
 		Status:     string(c.Status),
 		Message:    "File uploaded and processing started",
 	}
@@ -77,20 +78,43 @@ func (h *ContractHandler) Upload(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ContractHandler) GetByID(w http.ResponseWriter, r *http.Request) {
-	contractID := chi.URLParam(r, "id")
-	contract, err := h.service.GetContractByID(r.Context(), uuid.Must(uuid.Parse(contractID)))
+	contractIDStr := chi.URLParam(r, "id")
+	contractID, err := primitive.ObjectIDFromHex(contractIDStr)
+	if err != nil {
+		helpers.RespondWithError(w, http.StatusBadRequest, "Invalid 'id' format")
+		return
+	}
 
+	contract, err := h.service.GetContractByID(r.Context(), contractID)
 	if err != nil {
 		helpers.RespondWithError(w, http.StatusNotFound, "Contract not found")
 		return
 	}
 
 	response := ContractResponse{
-		ContractID: contract.ID.String(),
+		ContractID: contract.ID.Hex(),
 		URL:        contract.URL,
 		Status:     string(contract.Status),
-		Message:    "File uploaded and processing started",
+		Message:    "File retrieved successfully",
 	}
 
 	helpers.RespondWithJSON(w, http.StatusOK, response)
+}
+
+func (h *ContractHandler) ListByClientID(w http.ResponseWriter, r *http.Request) {
+	clientIDStr := chi.URLParam(r, "clientID")
+	clientID, err := primitive.ObjectIDFromHex(clientIDStr)
+	if err != nil {
+		helpers.RespondWithError(w, http.StatusBadRequest, "Invalid 'clientID' format. Must be a 24-character hex string (ObjectID)")
+		return
+	}
+
+	contracts, err := h.service.GetAllContractsByClientID(r.Context(), clientID)
+	if err != nil {
+		log.Printf("Error listing contracts: %v", err)
+		helpers.RespondWithError(w, http.StatusInternalServerError, "Failed to fetch contracts")
+		return
+	}
+
+	helpers.RespondWithJSON(w, http.StatusOK, contracts)
 }
