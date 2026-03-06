@@ -3,6 +3,7 @@ package mongo
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/francisco/distributed-job-platform/internal/domain/contract"
 	"go.mongodb.org/mongo-driver/bson"
@@ -21,9 +22,14 @@ func NewContractRepository(db *mongo.Database) contract.Repository {
 }
 
 func (r *contractRepository) Save(ctx context.Context, c *contract.Contract) error {
-	_, err := r.collection.InsertOne(ctx, c)
+	c.UpdatedAt = time.Now()
+	res, err := r.collection.InsertOne(ctx, c)
 	if err != nil {
 		return fmt.Errorf("failed to save contract to mongo: %w", err)
+	}
+
+	if oid, ok := res.InsertedID.(primitive.ObjectID); ok {
+		c.ID = oid
 	}
 	return nil
 }
@@ -39,6 +45,7 @@ func (r *contractRepository) GetByID(ctx context.Context, id primitive.ObjectID)
 		}
 		return nil, fmt.Errorf("failed to get contract from mongo: %w", err)
 	}
+
 	return &result, nil
 }
 

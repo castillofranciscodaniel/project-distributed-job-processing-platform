@@ -18,7 +18,6 @@ type Client struct {
 func NewClient(name, lastName, identifier string) *Client {
 	now := time.Now()
 	return &Client{
-		ID:         primitive.NewObjectID(),
 		Name:       name,
 		LastName:   lastName,
 		Identifier: identifier,

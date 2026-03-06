@@ -31,7 +31,6 @@ type Contract struct {
 func NewContract(clientID primitive.ObjectID, key string, bucket string, status ContractStatus) *Contract {
 	now := time.Now()
 	return &Contract{
-		ID:        primitive.NewObjectID(),
 		ClientID:  clientID,
 		Status:    status,
 		Key:       key,

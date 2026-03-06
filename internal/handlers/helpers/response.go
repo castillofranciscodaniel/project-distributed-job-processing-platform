@@ -2,15 +2,37 @@ package helpers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"strings"
+
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // RespondWithError is a helper to format HTTP error responses consistently.
 func RespondWithError(w http.ResponseWriter, code int, message string) {
-	RespondWithJSON(w, code, map[string]string{
+	RespondWithJSON(w, code, map[string]any{
 		"error":   http.StatusText(code),
 		"message": message,
+		"status":  code,
 	})
+}
+
+// HandleError detects the error type and responds with the appropriate status code.
+func HandleError(w http.ResponseWriter, err error) {
+	if err == nil {
+		return
+	}
+
+	code := http.StatusInternalServerError
+	message := err.Error()
+
+	// Detect Not Found
+	if errors.Is(err, mongo.ErrNoDocuments) || strings.Contains(strings.ToLower(message), "not found") {
+		code = http.StatusNotFound
+	}
+
+	RespondWithError(w, code, message)
 }
 
 // RespondWithJSON is a helper to write JSON responses with the proper Content-Type.

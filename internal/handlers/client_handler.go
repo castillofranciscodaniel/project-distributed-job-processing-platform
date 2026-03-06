@@ -40,7 +40,7 @@ func (h *ClientHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	c, err := h.service.CreateClient(r.Context(), req.Name, req.LastName, req.Identifier)
 	if err != nil {
-		helpers.RespondWithError(w, http.StatusInternalServerError, err.Error())
+		helpers.HandleError(w, err)
 		return
 	}
 
@@ -57,7 +57,7 @@ func (h *ClientHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 	c, err := h.service.GetClientByID(r.Context(), id)
 	if err != nil {
-		helpers.RespondWithError(w, http.StatusNotFound, "Client not found")
+		helpers.HandleError(w, err)
 		return
 	}
 

@@ -63,7 +63,7 @@ func (h *ContractHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	c, err := h.service.CreateContract(r.Context(), clientID, handler.Filename, file)
 	if err != nil {
 		log.Printf("Error creating contract: %v", err)
-		helpers.RespondWithError(w, http.StatusInternalServerError, "Failed to process contract")
+		helpers.HandleError(w, err)
 		return
 	}
 
@@ -87,7 +87,7 @@ func (h *ContractHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 	contract, err := h.service.GetContractByID(r.Context(), contractID)
 	if err != nil {
-		helpers.RespondWithError(w, http.StatusNotFound, "Contract not found")
+		helpers.HandleError(w, err)
 		return
 	}
 
@@ -112,7 +112,7 @@ func (h *ContractHandler) ListByClientID(w http.ResponseWriter, r *http.Request)
 	contracts, err := h.service.GetAllContractsByClientID(r.Context(), clientID)
 	if err != nil {
 		log.Printf("Error listing contracts: %v", err)
-		helpers.RespondWithError(w, http.StatusInternalServerError, "Failed to fetch contracts")
+		helpers.HandleError(w, err)
 		return
 	}
 

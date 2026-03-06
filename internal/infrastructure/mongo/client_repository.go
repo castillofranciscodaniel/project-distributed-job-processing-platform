@@ -3,6 +3,7 @@ package mongo
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/francisco/distributed-job-platform/internal/domain/client"
 	"go.mongodb.org/mongo-driver/bson"
@@ -21,9 +22,14 @@ func NewClientRepository(db *mongo.Database) client.Repository {
 }
 
 func (r *clientRepository) Save(ctx context.Context, c *client.Client) error {
-	_, err := r.collection.InsertOne(ctx, c)
+	c.UpdatedAt = time.Now()
+	res, err := r.collection.InsertOne(ctx, c)
 	if err != nil {
 		return fmt.Errorf("failed to save client: %w", err)
+	}
+
+	if oid, ok := res.InsertedID.(primitive.ObjectID); ok {
+		c.ID = oid
 	}
 	return nil
 }
