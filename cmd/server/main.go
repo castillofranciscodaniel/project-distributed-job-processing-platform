@@ -77,8 +77,9 @@ func main() {
 
 	// Contract routes
 	r.Post("/api/v1/contracts", contractHandler.Upload)
+	r.Get("/api/v1/contracts/client", contractHandler.ListByClientID)
+	r.Get("/api/v1/contracts/client/zip", contractHandler.DownloadZipped)
 	r.Get("/api/v1/contracts/{id}", contractHandler.GetByID)
-	r.Get("/api/v1/clients/{clientID}/contracts", contractHandler.ListByClientID)
 
 	// Start the server
 	log.Printf("Starting HTTP server on port %s", cfg.Port)

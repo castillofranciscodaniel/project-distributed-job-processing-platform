@@ -43,7 +43,7 @@ func NewS3Storage(ctx context.Context, bucketName, region string, expirationMinu
 func (s *Storage) UploadFile(ctx context.Context, clientID string, fileName string, fileContent io.Reader) (string, error) {
 	key := fmt.Sprintf("%s/%s", clientID, fileName)
 
-	result, err := s.transferManager.UploadObject(ctx, &transfermanager.UploadObjectInput{
+	_, err := s.transferManager.UploadObject(ctx, &transfermanager.UploadObjectInput{
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(key),
 		Body:   fileContent,
@@ -53,8 +53,8 @@ func (s *Storage) UploadFile(ctx context.Context, clientID string, fileName stri
 		return "", fmt.Errorf("failed to upload file to S3: %w", err)
 	}
 
-	log.Printf("Successfully uploaded file to S3: %s", *result.Location)
-	return *result.Key, nil
+	log.Printf("Successfully uploaded file to S3: %s", key)
+	return key, nil
 }
 
 func (s *Storage) GetPresignedURL(ctx context.Context, key string) (string, error) {
@@ -69,4 +69,16 @@ func (s *Storage) GetPresignedURL(ctx context.Context, key string) (string, erro
 	}
 
 	return request.URL, nil
+}
+
+func (s *Storage) DownloadFile(ctx context.Context, key string) (io.ReadCloser, error) {
+	output, err := s.client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to download file from S3: %w", err)
+	}
+
+	return output.Body, nil
 }

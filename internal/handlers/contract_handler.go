@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
@@ -102,10 +103,15 @@ func (h *ContractHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ContractHandler) ListByClientID(w http.ResponseWriter, r *http.Request) {
-	clientIDStr := chi.URLParam(r, "clientID")
+	clientIDStr := r.Header.Get("client_id")
+	if clientIDStr == "" {
+		helpers.RespondWithError(w, http.StatusBadRequest, "Missing 'client_id' header")
+		return
+	}
+
 	clientID, err := primitive.ObjectIDFromHex(clientIDStr)
 	if err != nil {
-		helpers.RespondWithError(w, http.StatusBadRequest, "Invalid 'clientID' format. Must be a 24-character hex string (ObjectID)")
+		helpers.RespondWithError(w, http.StatusBadRequest, "Invalid 'client_id' format. Must be a 24-character hex string (ObjectID)")
 		return
 	}
 
@@ -117,4 +123,29 @@ func (h *ContractHandler) ListByClientID(w http.ResponseWriter, r *http.Request)
 	}
 
 	helpers.RespondWithJSON(w, http.StatusOK, contracts)
+}
+func (h *ContractHandler) DownloadZipped(w http.ResponseWriter, r *http.Request) {
+	clientIDStr := r.Header.Get("client_id")
+	if clientIDStr == "" {
+		helpers.RespondWithError(w, http.StatusBadRequest, "Missing 'client_id' header")
+		return
+	}
+
+	clientID, err := primitive.ObjectIDFromHex(clientIDStr)
+	if err != nil {
+		helpers.RespondWithError(w, http.StatusBadRequest, "Invalid 'client_id' format")
+		return
+	}
+
+	zipData, err := h.service.GetAllContractsZippedByClientID(r.Context(), clientID)
+	if err != nil {
+		log.Printf("Error zipping contracts: %v", err)
+		helpers.HandleError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=contracts_%s.zip", clientIDStr))
+	w.WriteHeader(http.StatusOK)
+	w.Write(zipData)
 }

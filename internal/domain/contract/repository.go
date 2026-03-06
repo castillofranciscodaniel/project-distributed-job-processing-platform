@@ -10,6 +10,7 @@ import (
 type FileStorage interface {
 	UploadFile(ctx context.Context, clientID string, fileName string, fileContent io.Reader) (string, error)
 	GetPresignedURL(ctx context.Context, key string) (string, error)
+	DownloadFile(ctx context.Context, key string) (io.ReadCloser, error)
 }
 
 type Repository interface {
