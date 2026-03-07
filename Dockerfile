@@ -1,33 +1,39 @@
-# ETAPA 1: Compilación
+# --- STAGE 1: Constructor ---
 FROM golang:1.24-alpine AS builder
+
+# Instalamos dependencias necesarias para la compilación
+RUN apk add --no-cache git ca-certificates
 
 WORKDIR /app
 
-# Copiamos los archivos de módulos primero para aprovechar cache
+# Aprovechar cache de Docker para dependencias
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copiamos el resto del código
+# Copiamos todo el código fuente
 COPY . .
 
-# Compilamos el binario estático
-RUN CGO_ENABLED=0 GOOS=linux go build -o main ./cmd/server/main.go
+# Compilamos la API y el Worker por separado
+RUN CGO_ENABLED=0 GOOS=linux go build -o api-bin ./cmd/server/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o worker-bin ./cmd/worker/main.go
 
-# ETAPA 2: Ejecución (Imagen final ligera)
+# --- STAGE 2: Ejecución (Imagen final ligera) ---
 FROM alpine:latest
-
-# Instalamos certificados (CRUCIAL para hablar con S3) y tzdata
 RUN apk --no-cache add ca-certificates tzdata
 
 WORKDIR /app/
 
-# Copiamos solo el binario desde el builder
-COPY --from=builder /app/main .
+# Traemos los binarios compilados
+COPY --from=builder /app/api-bin .
+COPY --from=builder /app/worker-bin .
 
-# Por seguridad en ECS: Creamos un usuario no-root
-RUN adduser -D appuser
+# Por seguridad: Correr como usuario no-root
+RUN adduser -D appuser && chown -R appuser /app
 USER appuser
 
+# Exponemos puerto del API
 EXPOSE 8080
 
-ENTRYPOINT ["./main"]
+# Por defecto arranca la API
+# En ECS, para el Worker, sobreescribiremos el CMD a ["./worker-bin"]
+CMD ["./api-bin"]

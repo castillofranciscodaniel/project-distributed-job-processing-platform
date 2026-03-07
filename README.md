@@ -15,7 +15,36 @@ Plataforma de procesamiento distribuido de contratos diseñada para ser escalabl
 - **Concurrencia:** Implementación del patrón **Fan-Out / Fan-In** mediante Goroutines y Channels para el zipeado concurrente de archivos, optimizando el uso de la red y el CPU.
 - **Persistencia Asíncrona:** Los metadatos se guardan en MongoDB mientras que los documentos físicos se almacenan en S3, manteniendo una referencia cruzada segura.
 
-## 🚀 API Endpoints
+## � Docker
+
+La plataforma utiliza una única imagen multi-etapa que contiene tanto el binario de la API como el del Worker.
+
+### 1. Construir la imagen
+```bash
+docker build -t project-job-platform .
+```
+
+### 2. Ejecutar la API (Puerto 8080)
+Para que el contenedor se conecte al MongoDB de tu computadora local (Windows), usamos `host.docker.internal`:
+```bash
+docker run -p 8080:8080 \
+  -e MONGO_URI="mongodb://admin:password@host.docker.internal:27017" \
+  --env-file .env \
+  project-job-platform
+```
+
+### 3. Ejecutar el Worker
+```bash
+docker run \
+  -e MONGO_URI="mongodb://admin:password@host.docker.internal:27017" \
+  --env-file .env \
+  project-job-platform ./worker-bin
+```
+
+> [!TIP]
+> El flag `-e` sobreescribe lo que haya en el archivo `.env`. Usamos `host.docker.internal` porque para Docker, `localhost` es el propio contenedor y no tu PC.
+
+## �🚀 API Endpoints
 
 Todos los endpoints que requieren identificar a un cliente utilizan el header `client_id` (Hexadecimal de 24 caracteres).
 
