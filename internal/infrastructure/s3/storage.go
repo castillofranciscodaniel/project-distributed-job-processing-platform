@@ -40,13 +40,14 @@ func NewS3Storage(ctx context.Context, bucketName, region string, expirationMinu
 	}, nil
 }
 
-func (s *Storage) UploadFile(ctx context.Context, clientID string, fileName string, fileContent io.Reader) (string, error) {
+func (s *Storage) UploadFile(ctx context.Context, clientID string, fileName string, fileContent io.Reader, metadata map[string]string) (string, error) {
 	key := fmt.Sprintf("%s/%s", clientID, fileName)
 
 	_, err := s.transferManager.UploadObject(ctx, &transfermanager.UploadObjectInput{
-		Bucket: aws.String(s.bucket),
-		Key:    aws.String(key),
-		Body:   fileContent,
+		Bucket:   aws.String(s.bucket),
+		Key:      aws.String(key),
+		Body:     fileContent,
+		Metadata: metadata,
 	})
 
 	if err != nil {

@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 
@@ -137,15 +136,14 @@ func (h *ContractHandler) DownloadZipped(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	zipData, err := h.service.GetAllContractsZippedByClientID(r.Context(), clientID)
+	err = h.service.GetAllContractsZippedByClientID(r.Context(), clientID)
 	if err != nil {
-		log.Printf("Error zipping contracts: %v", err)
+		log.Printf("Error requesting zip package: %v", err)
 		helpers.HandleError(w, err)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/zip")
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=contracts_%s.zip", clientIDStr))
-	w.WriteHeader(http.StatusOK)
-	w.Write(zipData)
+	helpers.RespondWithJSON(w, http.StatusAccepted, map[string]string{
+		"message": "Zipping process started. You will receive an email once it is finished.",
+	})
 }

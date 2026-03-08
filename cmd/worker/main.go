@@ -1,31 +1,65 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
+
+	"github.com/francisco/distributed-job-platform/internal/config"
+	"github.com/francisco/distributed-job-platform/internal/domain/contract"
+	"github.com/francisco/distributed-job-platform/internal/infrastructure/aws"
+	"github.com/francisco/distributed-job-platform/internal/infrastructure/mongo"
+	"github.com/francisco/distributed-job-platform/internal/infrastructure/s3"
 )
 
 func main() {
 	log.Println("Starting Distributed Job Worker...")
 
-	// Aquí irá la lógica de conexión a la cola de mensajes (SQS/RabbitMQ/etc)
-	// y el procesamiento de contratos.
+	cfg := config.Load()
 
-	// Por ahora, simulamos un proceso que se mantiene vivo
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Handle signals for graceful shutdown
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
-	go func() {
-		for {
-			log.Println("Worker waiting for jobs...")
-			time.Sleep(30 * time.Second)
-		}
-	}()
+	// Dependency Injection
+	client, err := mongo.ConnectDB(cfg.MongoURI)
+	if err != nil {
+		log.Fatalf("Failed to connect to MongoDB: %v", err)
+	}
+	db := client.Database("distributed_jobs_db")
+
+	s3Storage, err := s3.NewS3Storage(ctx, cfg.S3.ContractBucket, cfg.S3.Region, cfg.S3.PresignedURLExpirationMinutes)
+	if err != nil {
+		log.Fatalf("Failed to initialize S3 storage: %v", err)
+	}
+
+	snsPublisher, err := aws.NewSNSPublisher(ctx, cfg.S3.Region, cfg.SNS.TopicArn)
+	if err != nil {
+		log.Fatalf("Failed to initialize SNS publisher: %v", err)
+	}
+
+	sqsConsumer, err := aws.NewSQSConsumer(ctx, cfg.S3.Region, cfg.SQS.QueueURL)
+	if err != nil {
+		log.Fatalf("Failed to initialize SQS consumer: %v", err)
+	}
+
+	clientRepo := mongo.NewClientRepository(db)
+	contractRepo := mongo.NewContractRepository(db)
+	contractService := contract.NewContractService(contractRepo, clientRepo, s3Storage, snsPublisher, cfg.S3.ContractBucket)
+
+	// New Contract Consumer component
+	contractConsumer := aws.NewContractZipConsumer(sqsConsumer, contractService)
+
+	// Run consumer in a separate goroutine
+	go contractConsumer.Start(ctx)
 
 	log.Println("Worker is running. Press Ctrl+C to stop.")
 	<-stop
 	log.Println("Shutting down worker...")
+	cancel()
 }

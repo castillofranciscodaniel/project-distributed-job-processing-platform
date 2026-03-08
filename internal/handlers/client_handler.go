@@ -13,6 +13,7 @@ import (
 type CreateClientRequest struct {
 	Name       string `json:"name"`
 	LastName   string `json:"lastName"`
+	Email      string `json:"email"`
 	Identifier string `json:"identifier"`
 }
 
@@ -33,12 +34,12 @@ func (h *ClientHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Name == "" || req.LastName == "" || req.Identifier == "" {
-		helpers.RespondWithError(w, http.StatusBadRequest, "Name, lastName and identifier are required")
+	if req.Name == "" || req.LastName == "" || req.Email == "" || req.Identifier == "" {
+		helpers.RespondWithError(w, http.StatusBadRequest, "Name, lastName, email and identifier are required")
 		return
 	}
 
-	c, err := h.service.CreateClient(r.Context(), req.Name, req.LastName, req.Identifier)
+	c, err := h.service.CreateClient(r.Context(), req.Name, req.LastName, req.Email, req.Identifier)
 	if err != nil {
 		helpers.HandleError(w, err)
 		return

@@ -9,12 +9,22 @@ type Config struct {
 	Port     string
 	MongoURI string
 	S3       S3Config
+	SNS      SNSConfig
+	SQS      SQSConfig
 }
 
 type S3Config struct {
 	ContractBucket                string
 	Region                        string
 	PresignedURLExpirationMinutes int
+}
+
+type SNSConfig struct {
+	TopicArn string
+}
+
+type SQSConfig struct {
+	QueueURL string
 }
 
 func Load() *Config {
@@ -25,6 +35,12 @@ func Load() *Config {
 			ContractBucket:                getEnv("AWS_S3_BUCKET", "distributed-jobs-platform-contracts"),
 			Region:                        getEnv("AWS_REGION", "us-east-1"),
 			PresignedURLExpirationMinutes: getEnvInt("AWS_S3_PRESIGNED_EXPIRATION_MINUTES", 15),
+		},
+		SNS: SNSConfig{
+			TopicArn: getEnv("SNS_TOPIC_ARN", ""),
+		},
+		SQS: SQSConfig{
+			QueueURL: getEnv("SQS_QUEUE_URL", ""),
 		},
 	}
 }

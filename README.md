@@ -25,24 +25,18 @@ docker build -t project-job-platform .
 ```
 
 ### 2. Ejecutar la API (Puerto 8080)
-Para que el contenedor se conecte al MongoDB de tu computadora local (Windows), usamos `host.docker.internal`:
+Como ahora usamos una base de datos en la nube (MongoDB Atlas), la conexión funciona directamente desde el contenedor:
 ```bash
-docker run -p 8080:8080 \
-  -e MONGO_URI="mongodb://admin:password@host.docker.internal:27017" \
-  --env-file .env \
-  project-job-platform
+docker run -p 8080:8080 --env-file .env project-job-platform
 ```
 
 ### 3. Ejecutar el Worker
 ```bash
-docker run \
-  -e MONGO_URI="mongodb://admin:password@host.docker.internal:27017" \
-  --env-file .env \
-  project-job-platform ./worker-bin
+docker run --env-file .env project-job-platform ./worker-bin
 ```
 
 > [!TIP]
-> El flag `-e` sobreescribe lo que haya en el archivo `.env`. Usamos `host.docker.internal` porque para Docker, `localhost` es el propio contenedor y no tu PC.
+> Asegúrate de haber actualizado el campo `<db_password>` en tu archivo `.env` por la contraseña real de Atlas antes de correr los comandos. Como la URI apunta a la nube, ya no es necesario usar `host.docker.internal`.
 
 ## �🚀 API Endpoints
 
@@ -61,3 +55,15 @@ Todos los endpoints que requieren identificar a un cliente utilizan el header `c
 ## 📦 Infraestructura
 - **MongoDB:** Colecciones de `clients` y `contracts`.
 - **AWS S3:** Almacenamiento organizado por carpetas según el ID del cliente: `bucket/client_id/filename.pdf`.
+
+
+## Siguientes pasos
+- En nustro ejemplo, queremos usar SNS para encolar las peticiones del zip. Entiendo que la seccion worker, estaria subcripto al SNS esperando consumir de a 1 mensaje a la vez para evitar el colapso. Una vez que hace el zip, este podria guardarlo en S3, y tener una lamba que gatille cuando se crea un zip nuevo en el bucket de zip, y mandar un mail al cliente dueño de ese file... pero como hago para q la lambda sepa el mail del zip que se sube al s3? ademas, aws tiene un sistema de mail que pueda usar para hacer las pruebas?
+
+SNS   
+contract-package-requested
+arn:aws:sns:us-east-1:432162757798:contract-package-requested
+
+SQS
+contract-package-requested-queue
+arn:aws:sqs:us-east-1:432162757798:contract-package-requested-queue

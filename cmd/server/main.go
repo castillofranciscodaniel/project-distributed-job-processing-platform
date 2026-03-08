@@ -11,6 +11,7 @@ import (
 	clientDomain "github.com/francisco/distributed-job-platform/internal/domain/client"
 	"github.com/francisco/distributed-job-platform/internal/domain/contract"
 	"github.com/francisco/distributed-job-platform/internal/handlers"
+	"github.com/francisco/distributed-job-platform/internal/infrastructure/aws"
 	"github.com/francisco/distributed-job-platform/internal/infrastructure/mongo"
 	"github.com/francisco/distributed-job-platform/internal/infrastructure/s3"
 	"github.com/go-chi/chi/v5"
@@ -56,8 +57,13 @@ func main() {
 	clientService := clientDomain.NewClientService(clientRepo)
 	clientHandler := handlers.NewClientHandler(clientService)
 
+	snsPublisher, err := aws.NewSNSPublisher(context.Background(), cfg.S3.Region, cfg.SNS.TopicArn)
+	if err != nil {
+		log.Fatalf("Failed to initialize SNS publisher: %v", err)
+	}
+
 	contractRepo := mongo.NewContractRepository(db)
-	contractService := contract.NewContractService(contractRepo, s3Storage, cfg.S3.ContractBucket)
+	contractService := contract.NewContractService(contractRepo, clientRepo, s3Storage, snsPublisher, cfg.S3.ContractBucket)
 	contractHandler := handlers.NewContractHandler(contractService)
 
 	// =========================================================================

@@ -17,14 +17,14 @@ func NewClientService(repo Repository) *ClientService {
 	}
 }
 
-func (s *ClientService) CreateClient(ctx context.Context, name, lastName, identifier string) (*Client, error) {
+func (s *ClientService) CreateClient(ctx context.Context, name, lastName, email, identifier string) (*Client, error) {
 	// Check if client with identifier already exists
 	existing, _ := s.repository.GetByIdentifier(ctx, identifier)
 	if existing != nil {
 		return nil, fmt.Errorf("client with identifier %s already exists", identifier)
 	}
 
-	c := NewClient(name, lastName, identifier)
+	c := NewClient(name, lastName, email, identifier)
 	if err := s.repository.Save(ctx, c); err != nil {
 		return nil, err
 	}

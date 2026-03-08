@@ -9,25 +9,30 @@ import (
 	"path"
 	"sync"
 
+	"github.com/francisco/distributed-job-platform/internal/domain/client"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type ContractService struct {
-	repository  Repository
-	fileStorage FileStorage
-	bucket      string
+	repository       Repository
+	clientRepository client.Repository
+	fileStorage      FileStorage
+	eventPublisher   EventPublisher
+	bucket           string
 }
 
-func NewContractService(repository Repository, fileStorage FileStorage, bucket string) *ContractService {
+func NewContractService(repository Repository, clientRepo client.Repository, fileStorage FileStorage, eventPublisher EventPublisher, bucket string) *ContractService {
 	return &ContractService{
-		repository:  repository,
-		fileStorage: fileStorage,
-		bucket:      bucket,
+		repository:       repository,
+		clientRepository: clientRepo,
+		fileStorage:      fileStorage,
+		eventPublisher:   eventPublisher,
+		bucket:           bucket,
 	}
 }
 
 func (s *ContractService) CreateContract(ctx context.Context, clientID primitive.ObjectID, fileName string, file io.Reader) (*Contract, error) {
-	key, err := s.fileStorage.UploadFile(ctx, clientID.Hex(), fileName, file)
+	key, err := s.fileStorage.UploadFile(ctx, clientID.Hex(), fileName, file, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -78,10 +83,22 @@ type fileResult struct {
 	err     error
 }
 
-func (s *ContractService) GetAllContractsZippedByClientID(ctx context.Context, clientID primitive.ObjectID) ([]byte, error) {
+type ZippingRequestedEvent struct {
+	ClientID string `json:"client_id"`
+}
+
+func (s *ContractService) GetAllContractsZippedByClientID(ctx context.Context, clientID primitive.ObjectID) error {
+	event := ZippingRequestedEvent{
+		ClientID: clientID.Hex(),
+	}
+
+	return s.eventPublisher.Publish(ctx, event)
+}
+
+func (s *ContractService) ProcessZippingRequest(ctx context.Context, clientID primitive.ObjectID) error {
 	contracts, err := s.repository.GetAllByClientID(ctx, clientID)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	buf := new(bytes.Buffer)
@@ -104,14 +121,31 @@ func (s *ContractService) GetAllContractsZippedByClientID(ctx context.Context, c
 
 	// Phase 3: Sequential Zip Writing
 	if err := s.writeZipArchive(zw, results); err != nil {
-		return nil, err
+		return err
 	}
 
 	if err := zw.Close(); err != nil {
-		return nil, err
+		return err
 	}
 
-	return buf.Bytes(), nil
+	// Final Phase: Upload to S3 in the client folder
+	// We add metadata so Lambda knows where to send the email
+	metadata := make(map[string]string)
+	metadata["client-id"] = clientID.Hex()
+
+	// Fetch client to get email
+	cl, err := s.clientRepository.GetByID(ctx, clientID)
+	if err == nil && cl.Email != "" {
+		metadata["client-email"] = cl.Email
+	}
+
+	zipFileName := fmt.Sprintf("contracts_%s.zip", clientID.Hex())
+	_, err = s.fileStorage.UploadFile(ctx, clientID.Hex(), zipFileName, buf, metadata)
+	if err != nil {
+		return fmt.Errorf("failed to upload final zip to S3: %w", err)
+	}
+
+	return nil
 }
 
 func (s *ContractService) downloadContractAsync(ctx context.Context, c Contract, results chan<- fileResult, wg *sync.WaitGroup) {
