@@ -84,7 +84,7 @@ func main() {
 	// Contract routes
 	r.Post("/api/v1/contracts", contractHandler.Upload)
 	r.Get("/api/v1/contracts/client", contractHandler.ListByClientID)
-	r.Get("/api/v1/contracts/client/zip", contractHandler.DownloadZipped)
+	r.Post("/api/v1/contracts/client/zip", contractHandler.DownloadZipped)
 	r.Get("/api/v1/contracts/{id}", contractHandler.GetByID)
 
 	// Start the server

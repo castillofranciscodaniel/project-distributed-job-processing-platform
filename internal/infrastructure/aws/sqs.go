@@ -30,7 +30,7 @@ func NewSQSConsumer(ctx context.Context, region, queueURL string) (*SQSConsumer,
 func (c *SQSConsumer) ReceiveMessages(ctx context.Context) ([]types.Message, error) {
 	output, err := c.client.ReceiveMessage(ctx, &sqs.ReceiveMessageInput{
 		QueueUrl:            aws.String(c.queueURL),
-		MaxNumberOfMessages: 10,
+		MaxNumberOfMessages: 1,  // Procesamos de a 1 para no colapsar con zips pesados
 		WaitTimeSeconds:     20, // Long polling
 	})
 	if err != nil {

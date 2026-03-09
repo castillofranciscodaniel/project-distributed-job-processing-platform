@@ -62,8 +62,8 @@ Todos los endpoints que requieren identificar a un cliente utilizan el header `c
 
 SNS   
 contract-package-requested
-arn:aws:sns:us-east-1:432162757798:contract-package-requested
+arn:aws:sns:us-east-2:432162757798:contract-package-requested
 
 SQS
 contract-package-requested-queue
-arn:aws:sqs:us-east-1:432162757798:contract-package-requested-queue
+arn:aws:sqs:us-east-2:432162757798:contract-package-requested-queue
