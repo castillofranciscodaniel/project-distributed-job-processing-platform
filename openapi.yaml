@@ -1,17 +1,91 @@
 openapi: 3.0.3
 info:
   title: Distributed Contract Processing API
-  description: API base para recibir contratos, guardarlos en S3 y persistir su metadata/datos.
+  description: API para la gestión de clientes y procesamiento distribuido de contratos.
   version: 1.0.0
+
 servers:
-  - url: http://localhost:8080/api/v1
+  - url: http://localhost:8080
     description: Servidor Local
+
 paths:
-  /contracts:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Verifica el estado del servicio y su conectividad con la base de datos.
+      responses:
+        '200':
+          description: El servicio está operativo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: El servicio no está disponible (ej. error de base de datos).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/clients:
     post:
-      summary: Subir un archivo de contrato (Contract)
-      description: Recibe un archivo (ej. JSON), lo sube a un bucket S3, extrae información relevante y la persiste en la base de datos (PostgreSQL/Mongo).
-      operationId: uploadContractFile
+      summary: Crear un nuevo cliente
+      description: Registra un cliente en el sistema.
+      operationId: createClient
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateClientRequest'
+      responses:
+        '201':
+          description: Cliente creado exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+        '400':
+          description: Datos de entrada inválidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/clients/{id}:
+    get:
+      summary: Obtener un cliente por ID
+      description: Retorna los detalles de un cliente específico.
+      operationId: getClientById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID del cliente (ObjectID hex)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Detalles del cliente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+        '404':
+          description: Cliente no encontrado.
+
+  /api/v1/contracts:
+    post:
+      summary: Subir un nuevo contrato
+      description: Sube un archivo de contrato a S3 e inicia su procesamiento. Requiere el ID del cliente en el header.
+      operationId: uploadContract
+      parameters:
+        - name: client_id
+          in: header
+          required: true
+          description: ID del cliente que sube el contrato.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -22,50 +96,164 @@ paths:
                 file:
                   type: string
                   format: binary
-                  description: Archivo JSON con los datos a procesar y persistir.
               required:
                 - file
       responses:
         '202':
-          description: Archivo aceptado para procesamiento. (Se usa 202 Accepted porque el guardado en S3 y base de datos podría ser asíncrono o tomar tiempo).
+          description: Contrato aceptado para procesamiento.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ContractResponse'
         '400':
-          description: Petición incorrecta (ej. archivo no enviado o formato inválido).
+          description: Error en la petición o archivo faltante.
+
+  /api/v1/contracts/{id}:
+    get:
+      summary: Obtener contrato por ID
+      description: Retorna los metadatos y la URL del contrato.
+      operationId: getContractById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID del contrato.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Detalles del contrato.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Error interno del servidor.
+                $ref: '#/components/schemas/ContractResponse'
+
+  /api/v1/contracts/client:
+    get:
+      summary: Listar contratos de un cliente
+      description: Retorna todos los contratos asociados a un cliente.
+      operationId: listContractsByClient
+      parameters:
+        - name: client_id
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de contratos.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: array
+                items:
+                  $ref: '#/components/schemas/Contract'
+
+  /api/v1/contracts/client/zip:
+    post:
+      summary: Descargar todos los contratos de un cliente en ZIP
+      description: Inicia un proceso asíncrono para empaquetar todos los contratos del cliente y enviarlos por email.
+      operationId: downloadContractsZip
+      parameters:
+        - name: client_id
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '202':
+          description: Proceso de compresión iniciado.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
 components:
   schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: UP
+
+    CreateClientRequest:
+      type: object
+      required:
+        - name
+        - lastName
+        - email
+        - identifier
+      properties:
+        name:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        identifier:
+          type: string
+
+    Client:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        identifier:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Contract:
+      type: object
+      properties:
+        id:
+          type: string
+        clientId:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, ACCEPTED, PROCESSING, COMPLETED, FAILED]
+        key:
+          type: string
+        bucket:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
     ContractResponse:
       type: object
       properties:
         contract_id:
           type: string
-          format: uuid
-          description: Identificador único del contrato generado.
+        url:
+          type: string
         status:
           type: string
-          example: accepted
-          description: Estado actual del proceso.
         message:
           type: string
-          example: File uploaded and processing started
+
     ErrorResponse:
       type: object
       properties:
         error:
           type: string
-          example: Bad Request
         message:
           type: string
-          example: Invalid file format

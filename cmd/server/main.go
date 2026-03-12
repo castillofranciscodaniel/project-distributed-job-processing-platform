@@ -66,6 +66,8 @@ func main() {
 	contractService := contract.NewContractService(contractRepo, clientRepo, s3Storage, snsPublisher, cfg.S3.ContractBucket)
 	contractHandler := handlers.NewContractHandler(contractService)
 
+	healthHandler := handlers.NewHealthHandler(client)
+
 	// =========================================================================
 	// Setup the Chi router
 	// =========================================================================
@@ -77,15 +79,21 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	// Client routes
-	r.Post("/api/v1/clients", clientHandler.Create)
-	r.Get("/api/v1/clients/{id}", clientHandler.GetByID)
+	// Health check
+	r.Get("/health", healthHandler.Health)
 
-	// Contract routes
-	r.Post("/api/v1/contracts", contractHandler.Upload)
-	r.Get("/api/v1/contracts/client", contractHandler.ListByClientID)
-	r.Post("/api/v1/contracts/client/zip", contractHandler.DownloadZipped)
-	r.Get("/api/v1/contracts/{id}", contractHandler.GetByID)
+	// API v1
+	r.Route("/api/v1", func(r chi.Router) {
+		// Client routes
+		r.Post("/clients", clientHandler.Create)
+		r.Get("/clients/{id}", clientHandler.GetByID)
+
+		// Contract routes
+		r.Post("/contracts", contractHandler.Upload)
+		r.Get("/contracts/client", contractHandler.ListByClientID)
+		r.Post("/contracts/client/zip", contractHandler.DownloadZipped)
+		r.Get("/contracts/{id}", contractHandler.GetByID)
+	})
 
 	// Start the server
 	log.Printf("Starting HTTP server on port %s", cfg.Port)
