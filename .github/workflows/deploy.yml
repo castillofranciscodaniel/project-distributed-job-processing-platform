@@ -38,3 +38,4 @@ jobs:
         
         # Sube la imagen al almacén de AWS
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
