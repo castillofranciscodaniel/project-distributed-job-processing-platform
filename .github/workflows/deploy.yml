@@ -33,9 +33,9 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }} # Usa el ID del commit como versión
       run: |
-        # Construye la imagen usando tu Dockerfile
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        # Construye la imagen usando tu Dockerfile y le asigna ambos tags
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
         
-        # Sube la imagen al almacén de AWS
+        # Sube las imagenes al almacén de AWS
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
