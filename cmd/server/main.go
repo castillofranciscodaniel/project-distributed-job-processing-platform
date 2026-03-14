@@ -95,6 +95,12 @@ func main() {
 		r.Get("/contracts/{id}", contractHandler.GetByID)
 	})
 
+	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("404 en: %s | Headers: %v", r.URL.Path, r.Header)
+		w.WriteHeader(404)
+		w.Write([]byte("No encontre: " + r.URL.Path))
+	})
+
 	// Start the server
 	log.Printf("Starting HTTP server on port %s", cfg.Port)
 

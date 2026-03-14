@@ -38,11 +38,6 @@ func main() {
 		log.Fatalf("Failed to initialize S3 storage: %v", err)
 	}
 
-	snsPublisher, err := aws.NewSNSPublisher(ctx, cfg.S3.Region, cfg.SNS.TopicArn)
-	if err != nil {
-		log.Fatalf("Failed to initialize SNS publisher: %v", err)
-	}
-
 	sqsConsumer, err := aws.NewSQSConsumer(ctx, cfg.S3.Region, cfg.SQS.QueueURL)
 	if err != nil {
 		log.Fatalf("Failed to initialize SQS consumer: %v", err)
@@ -50,10 +45,10 @@ func main() {
 
 	clientRepo := mongo.NewClientRepository(db)
 	contractRepo := mongo.NewContractRepository(db)
-	contractService := contract.NewContractService(contractRepo, clientRepo, s3Storage, snsPublisher, cfg.S3.ContractBucket)
+	workerService := contract.NewContractWorkerService(contractRepo, clientRepo, s3Storage)
 
 	// New Contract Consumer component
-	contractConsumer := aws.NewContractZipConsumer(sqsConsumer, contractService)
+	contractConsumer := aws.NewContractZipConsumer(sqsConsumer, workerService)
 
 	// Run consumer in a separate goroutine
 	go contractConsumer.Start(ctx)

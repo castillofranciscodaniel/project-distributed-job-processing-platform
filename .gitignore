@@ -33,3 +33,7 @@ go.work.sum
 # OS specific files
 .DS_Store
 Thumbs.db
+
+# Temp files and binaries
+tmp_*
+tmp_server

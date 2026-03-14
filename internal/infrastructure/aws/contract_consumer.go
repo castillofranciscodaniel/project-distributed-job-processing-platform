@@ -11,14 +11,14 @@ import (
 )
 
 type ContractZipConsumer struct {
-	sqsConsumer     *SQSConsumer
-	contractService *contract.ContractService
+	sqsConsumer   *SQSConsumer
+	workerService *contract.ContractWorkerService
 }
 
-func NewContractZipConsumer(sqsConsumer *SQSConsumer, service *contract.ContractService) *ContractZipConsumer {
+func NewContractZipConsumer(sqsConsumer *SQSConsumer, service *contract.ContractWorkerService) *ContractZipConsumer {
 	return &ContractZipConsumer{
-		sqsConsumer:     sqsConsumer,
-		contractService: service,
+		sqsConsumer:   sqsConsumer,
+		workerService: service,
 	}
 }
 
@@ -72,7 +72,7 @@ func (c *ContractZipConsumer) processMessage(ctx context.Context, body, receiptH
 
 	// 3. Invoke Service Logic
 	log.Printf("Executing zipping job for Client: %s", clientID.Hex())
-	if err := c.contractService.ProcessZippingRequest(ctx, clientID); err != nil {
+	if err := c.workerService.ProcessZippingRequest(ctx, clientID); err != nil {
 		log.Printf("Job failed for Client %s: %v", clientID.Hex(), err)
 		return
 	}
